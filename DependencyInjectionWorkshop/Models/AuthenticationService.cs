@@ -9,8 +9,30 @@ using SlackAPI;
 
 namespace DependencyInjectionWorkshop.Models
 {
+    public class ProfileDao
+    {
+        public string GetPasswordFromDb(string accountId)
+        {
+            string password;
+            using (var connection = new SqlConnection("my connection string"))
+            {
+                password = connection.Query<string>("spGetUserPassword", new {Id = accountId},
+                    commandType: CommandType.StoredProcedure).SingleOrDefault();
+            }
+
+            return password;
+        }
+    }
+
     public class AuthenticationService
     {
+        private readonly ProfileDao _profileDao;
+
+        public AuthenticationService()
+        {
+            _profileDao = new ProfileDao();
+        }
+
         public bool Verify(string accountId, string inputPassword, string otp)
         {
             if (GetIsAccountLocked(accountId))
@@ -18,7 +40,8 @@ namespace DependencyInjectionWorkshop.Models
                 throw new FailedTooManyTimesException();
             }
 
-            var password = GetPasswordFromDb(accountId);
+            //in order to create profileDao inline profile first then introduce field chose constructor
+            var password = _profileDao.GetPasswordFromDb(accountId);
             var hashPassword = GetHashPassword(inputPassword);
             var currentOpt = CurrentOpt(accountId);
 
@@ -103,17 +126,6 @@ namespace DependencyInjectionWorkshop.Models
         }
 
         //extract class on this
-        private static string GetPasswordFromDb(string accountId)
-        {
-            string password;
-            using (var connection = new SqlConnection("my connection string"))
-            {
-                password = connection.Query<string>("spGetUserPassword", new {Id = accountId},
-                    commandType: CommandType.StoredProcedure).SingleOrDefault();
-            }
-
-            return password;
-        }
     }
 
     public class FailedTooManyTimesException : Exception
