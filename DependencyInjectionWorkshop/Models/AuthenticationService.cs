@@ -15,33 +15,6 @@ namespace DependencyInjectionWorkshop.Models
         bool Verify(string accountId, string inputPassword, string otp);
     }
 
-    public class FailedCounterDecorator : BaseAuthenticationDecorator
-    {
-        private IAuthentication _Authentication;
-        private readonly IFailedCounter _FailedCounter;
-
-        public FailedCounterDecorator(IAuthentication authentication, IFailedCounter failedCounter) : base(authentication)
-        {
-            _Authentication = authentication;
-            _FailedCounter = failedCounter;
-        }
-
-        private void ResetFailedCount(string accountId)
-        {
-            _FailedCounter.ResetFailedCount(accountId);
-        }
-        
-        public override bool Verify(string accountId, string inputPassword, string otp)
-        {
-            var isValid = base.Verify(accountId, inputPassword, otp);
-            if (isValid)
-            {
-                ResetFailedCount(accountId);
-            }
-            return isValid;
-        }
-    }
-
     public class AuthenticationService : IAuthentication
     {
         private readonly IProfile _Profile;
@@ -51,6 +24,7 @@ namespace DependencyInjectionWorkshop.Models
         private readonly IFailedCounter _FailedCounter;
         private readonly ILogger _Logger;
         private readonly FailedCounterDecorator _FailedCounterDecorator;
+        private readonly LogFailedCounterDecorator _LogFailedCounterDecorator;
 
 
         public AuthenticationService()
@@ -74,27 +48,22 @@ namespace DependencyInjectionWorkshop.Models
             _Logger = logger;
         }
 
+        public IFailedCounter FailedCounter
+        {
+            get { return _FailedCounter; }
+        }
+
         public bool Verify(string accountId, string inputPassword, string otp)
         {
-            if (_FailedCounter.IsAccountLocked(accountId))
-            {
-                throw new FailedTooManyTimesException();
-            }
-
             var password = _Profile.GetPassword(accountId);
             var hashPassword = _Hash.ComputeHash(inputPassword);
             var currentOpt = _OtpService.GetOpt(accountId);
 
             if (hashPassword != password || currentOpt != otp)
             {
-                _FailedCounter.AddFailedCount(accountId);
-                int failedCount = _FailedCounter.GetFailedCount(accountId);
-                _Logger.Log($"accountId:{accountId} failed times:{failedCount}");
-                //_NotificationDecorator.Notify(accountId);
+                //_LogFailedCounterDecorator.LogFailedCount(accountId);
                 return false;
             }
-
-            //        _FailedCounterDecorator.ResetFailedCount(accountId);
             return true;
         }
     }
