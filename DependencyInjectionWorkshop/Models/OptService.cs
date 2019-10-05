@@ -3,7 +3,12 @@ using System.Net.Http;
 
 namespace DependencyInjectionWorkshop.Models
 {
-    public class OptService
+    public interface IOptService
+    {
+        string CurrentOpt(string accountId);
+    }
+
+    public class OptService : IOptService
     {
         public OptService()
         {
@@ -11,7 +16,7 @@ namespace DependencyInjectionWorkshop.Models
 
         public string CurrentOpt(string accountId)
         {
-            var response = new HttpClient() {BaseAddress = new Uri("http://joey.com/")}.PostAsJsonAsync("api/otps", accountId)
+            var response = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/otps", accountId)
                 .Result;
             if (!response.IsSuccessStatusCode)
             {

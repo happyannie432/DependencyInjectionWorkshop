@@ -5,32 +5,33 @@ namespace DependencyInjectionWorkshop.Models
 {
     public class AuthenticationService
     {
-        private readonly ProfileDao _ProfileDao;
-        private readonly Sha256Adapter _Sha256Adapter;
-        private readonly OptService _OptService;
-        private readonly SlackAdapter _SlackAdapter;
-        private readonly FailedCounter _FailedCounter;
-        private readonly NLogAdapter _NLogAdapter;
+        private readonly IProfile _Profile;
+        private readonly IHash _Hash;
+        private readonly IOptService _OptService;
+        private readonly INotification _Notification;
+        private readonly IFailedCounter _FailedCounter;
+        private readonly ILogger _Logger;
 
      
         public AuthenticationService()
         {
-            _ProfileDao = new ProfileDao();
-            _Sha256Adapter = new Sha256Adapter();
+            _Profile = new ProfileDao();
+            _Hash = new Sha256Adapter();
             _OptService = new OptService();
-            _SlackAdapter = new SlackAdapter();
+            _Notification = new SlackAdapter();
             _FailedCounter = new FailedCounter();
-            _NLogAdapter = new NLogAdapter();
+            _Logger = new NLogAdapter();
         }
+
         //alt + insert 
-        public AuthenticationService(ProfileDao profileDao, Sha256Adapter sha256Adapter, OptService optService, SlackAdapter slackAdapter, FailedCounter failedCounter, NLogAdapter nLogAdapter)
+        public AuthenticationService(IProfile profile, IHash hash, IOptService optService, INotification notification, IFailedCounter failedCounter, ILogger logger)
         {
-            _ProfileDao = profileDao;
-            _Sha256Adapter = sha256Adapter;
+            _Profile = profile;
+            _Hash = hash;
             _OptService = optService;
-            _SlackAdapter = slackAdapter;
+            _Notification = notification;
             _FailedCounter = failedCounter;
-            _NLogAdapter = nLogAdapter;
+            _Logger = logger;
         }
 
         public bool Verify(string accountId, string inputPassword, string otp)
@@ -40,26 +41,20 @@ namespace DependencyInjectionWorkshop.Models
                 throw new FailedTooManyTimesException();
             }
 
-            var password = _ProfileDao.GetPasswordFromDb(accountId);
-            var hashPassword = _Sha256Adapter.GetHashPassword(inputPassword);
+            var password = _Profile.GetPasswordFromDb(accountId);
+            var hashPassword = _Hash.GetHashPassword(inputPassword);
             var currentOpt = _OptService.CurrentOpt(accountId);
 
             if (hashPassword != password || currentOpt != otp)
             {
                 _FailedCounter.AddFailedCount(accountId);
-                LogFailedCount(accountId);
-                _SlackAdapter.Notify("Login Failed");
+                _Logger.Log(accountId, _FailedCounter.GetFailedCount(accountId));
+                _Notification.Notify("Login Failed");
                 return false;
             }
 
             _FailedCounter.ResetFailedCount(accountId);
             return true;
-        }
-
-        private  void LogFailedCount(string accountId)
-        {
-            int failedCount = _FailedCounter.FailedCount(accountId);
-            _NLogAdapter.Log(accountId, failedCount);
         }
     }
 
