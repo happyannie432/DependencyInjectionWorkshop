@@ -4,7 +4,7 @@ namespace DependencyInjectionWorkshop.Models
 {
     public interface IHash
     {
-        string GetHashPassword(string inputPassword);
+        string ComputeHash(string inputPassword);
     }
 
     public class Sha256Adapter : IHash
@@ -13,7 +13,7 @@ namespace DependencyInjectionWorkshop.Models
         {
         }
 
-        public string GetHashPassword(string inputPassword)
+        public string ComputeHash(string inputPassword)
         {
             var crypt = new System.Security.Cryptography.SHA256Managed();
             var hash = new StringBuilder();

@@ -7,7 +7,7 @@ namespace DependencyInjectionWorkshop.Models
     {
         void AddFailedCount(string accountId);
         void ResetFailedCount(string accountId);
-        bool GetIsAccountLocked(string accountId);
+        bool IsAccountLocked(string accountId);
         int GetFailedCount(string accountId);
     }
 
@@ -29,7 +29,7 @@ namespace DependencyInjectionWorkshop.Models
             resetResponse.EnsureSuccessStatusCode();
         }
 
-        public bool GetIsAccountLocked(string accountId)
+        public bool IsAccountLocked(string accountId)
         {
             var isLockedResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/IsLocked", accountId).Result;
 

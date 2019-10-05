@@ -3,18 +3,18 @@ using System.Net.Http;
 
 namespace DependencyInjectionWorkshop.Models
 {
-    public interface IOptService
+    public interface IOtpService
     {
-        string CurrentOpt(string accountId);
+        string GetOpt(string accountId);
     }
 
-    public class OptService : IOptService
+    public class OtpService : IOtpService
     {
-        public OptService()
+        public OtpService()
         {
         }
 
-        public string CurrentOpt(string accountId)
+        public string GetOpt(string accountId)
         {
             var response = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/otps", accountId)
                 .Result;

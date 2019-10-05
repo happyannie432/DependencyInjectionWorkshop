@@ -7,7 +7,7 @@ namespace DependencyInjectionWorkshop.Models
     {
         private readonly IProfile _Profile;
         private readonly IHash _Hash;
-        private readonly IOptService _OptService;
+        private readonly IOtpService _OtpService;
         private readonly INotification _Notification;
         private readonly IFailedCounter _FailedCounter;
         private readonly ILogger _Logger;
@@ -17,18 +17,18 @@ namespace DependencyInjectionWorkshop.Models
         {
             _Profile = new ProfileDao();
             _Hash = new Sha256Adapter();
-            _OptService = new OptService();
+            _OtpService = new OtpService();
             _Notification = new SlackAdapter();
             _FailedCounter = new FailedCounter();
             _Logger = new NLogAdapter();
         }
 
         //alt + insert 
-        public AuthenticationService(IProfile profile, IHash hash, IOptService optService, INotification notification, IFailedCounter failedCounter, ILogger logger)
+        public AuthenticationService(IProfile profile, IHash hash, IOtpService otpService, INotification notification, IFailedCounter failedCounter, ILogger logger)
         {
             _Profile = profile;
             _Hash = hash;
-            _OptService = optService;
+            _OtpService = otpService;
             _Notification = notification;
             _FailedCounter = failedCounter;
             _Logger = logger;
@@ -36,20 +36,21 @@ namespace DependencyInjectionWorkshop.Models
 
         public bool Verify(string accountId, string inputPassword, string otp)
         {
-            if (_FailedCounter.GetIsAccountLocked(accountId))
+            if (_FailedCounter.IsAccountLocked(accountId))
             {
                 throw new FailedTooManyTimesException();
             }
 
-            var password = _Profile.GetPasswordFromDb(accountId);
-            var hashPassword = _Hash.GetHashPassword(inputPassword);
-            var currentOpt = _OptService.CurrentOpt(accountId);
+            var password = _Profile.GetPassword(accountId);
+            var hashPassword = _Hash.ComputeHash(inputPassword);
+            var currentOpt = _OtpService.GetOpt(accountId);
 
             if (hashPassword != password || currentOpt != otp)
             {
                 _FailedCounter.AddFailedCount(accountId);
-                _Logger.Log(accountId, _FailedCounter.GetFailedCount(accountId));
-                _Notification.Notify("Login Failed");
+                int failedCount = _FailedCounter.GetFailedCount(accountId);
+                _Logger.Log($"accountId:{accountId} failed times:{failedCount}");
+                _Notification.Notify($"{accountId} Login Failed");
                 return false;
             }
 
