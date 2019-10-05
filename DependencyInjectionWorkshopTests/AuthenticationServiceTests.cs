@@ -19,7 +19,7 @@ namespace DependencyInjectionWorkshopTests
         private IFailedCounter _FailCounter;
         private INotification _Notification;
         private ILogger _Logger;
-        private AuthenticationService _AuthenticationService;
+        private IAuthentication _AuthenticationService;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,7 @@ namespace DependencyInjectionWorkshopTests
             _Notification = Substitute.For<INotification>();
             _Logger = Substitute.For<ILogger>();
             _AuthenticationService = new AuthenticationService(_ProfileDao, _Hash, _Otp, _Notification, _FailCounter, _Logger);
+            _AuthenticationService = new NotificationDecorator(_AuthenticationService,_Notification);
         }
 
         [Test]

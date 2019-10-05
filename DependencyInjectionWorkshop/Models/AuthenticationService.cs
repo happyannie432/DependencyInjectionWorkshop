@@ -1,9 +1,49 @@
 ﻿using System;
 using System.Net.Http;
 
+//1. IAuthentication
+//2. extract method
+//3. create class for notify
+//4. implement
+//5. constructor 
+
+
 namespace DependencyInjectionWorkshop.Models
 {
-    public class AuthenticationService
+    public interface IAuthentication
+    {
+        bool Verify(string accountId, string inputPassword, string otp);
+    }
+
+    public class NotificationDecorator : IAuthentication
+    {
+        private readonly IAuthentication _AuthenticationService;
+        private readonly INotification _Notification;
+
+        public NotificationDecorator(IAuthentication authenticationService, INotification notification)
+        {
+            _AuthenticationService = authenticationService;
+            _Notification = notification;
+        }
+
+        public void Notify(string accountId)
+        {
+            _Notification.Notify($"{accountId} Login Failed");
+        }
+
+        public bool Verify(string accountId, string inputPassword, string otp)
+        {
+            var isValid = _AuthenticationService.Verify(accountId, inputPassword, otp);
+            if (!isValid)
+            {
+                Notify(accountId);
+                return false;
+            }
+            return true;
+        }
+    }
+
+    public class AuthenticationService : IAuthentication
     {
         private readonly IProfile _Profile;
         private readonly IHash _Hash;
@@ -11,8 +51,9 @@ namespace DependencyInjectionWorkshop.Models
         private readonly INotification _Notification;
         private readonly IFailedCounter _FailedCounter;
         private readonly ILogger _Logger;
+        private readonly NotificationDecorator _NotificationDecorator;
 
-     
+
         public AuthenticationService()
         {
             _Profile = new ProfileDao();
@@ -21,6 +62,7 @@ namespace DependencyInjectionWorkshop.Models
             _Notification = new SlackAdapter();
             _FailedCounter = new FailedCounter();
             _Logger = new NLogAdapter();
+
         }
 
         //alt + insert 
@@ -50,7 +92,7 @@ namespace DependencyInjectionWorkshop.Models
                 _FailedCounter.AddFailedCount(accountId);
                 int failedCount = _FailedCounter.GetFailedCount(accountId);
                 _Logger.Log($"accountId:{accountId} failed times:{failedCount}");
-                _Notification.Notify($"{accountId} Login Failed");
+                //_NotificationDecorator.Notify(accountId);
                 return false;
             }
 
