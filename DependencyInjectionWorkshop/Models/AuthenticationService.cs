@@ -3,91 +3,64 @@ using System.Net.Http;
 
 namespace DependencyInjectionWorkshop.Models
 {
-    public class FailedCounter
-    {
-        public FailedCounter()
-        {
-        }
-
-        public void AddFailedCount(string accountId)
-        {
-            var addFailedCountResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/Add", accountId).Result;
-            addFailedCountResponse.EnsureSuccessStatusCode();
-        }
-    }
-
     public class AuthenticationService
     {
-        private readonly ProfileDao _profileDao;
-        private readonly Sha256Adapter _sha256Adapter;
-        private readonly OptService _optService;
-        private readonly SlackAdapter _slackAdapter;
-        private readonly FailedCounter _failedCounter;
+        private readonly ProfileDao _ProfileDao;
+        private readonly Sha256Adapter _Sha256Adapter;
+        private readonly OptService _OptService;
+        private readonly SlackAdapter _SlackAdapter;
+        private readonly FailedCounter _FailedCounter;
+        private readonly NLogAdapter _NLogAdapter;
 
+     
         public AuthenticationService()
         {
-            _profileDao = new ProfileDao();
-            _sha256Adapter = new Sha256Adapter();
-            _optService = new OptService();
-            _slackAdapter = new SlackAdapter();
-            _failedCounter = new FailedCounter();
+            _ProfileDao = new ProfileDao();
+            _Sha256Adapter = new Sha256Adapter();
+            _OptService = new OptService();
+            _SlackAdapter = new SlackAdapter();
+            _FailedCounter = new FailedCounter();
+            _NLogAdapter = new NLogAdapter();
+        }
+        //alt + insert 
+        public AuthenticationService(ProfileDao profileDao, Sha256Adapter sha256Adapter, OptService optService, SlackAdapter slackAdapter, FailedCounter failedCounter, NLogAdapter nLogAdapter)
+        {
+            _ProfileDao = profileDao;
+            _Sha256Adapter = sha256Adapter;
+            _OptService = optService;
+            _SlackAdapter = slackAdapter;
+            _FailedCounter = failedCounter;
+            _NLogAdapter = nLogAdapter;
         }
 
         public bool Verify(string accountId, string inputPassword, string otp)
         {
-            if (GetIsAccountLocked(accountId))
+            if (_FailedCounter.GetIsAccountLocked(accountId))
             {
                 throw new FailedTooManyTimesException();
             }
 
-            var password = _profileDao.GetPasswordFromDb(accountId);
-            var hashPassword = _sha256Adapter.GetHashPassword(inputPassword);
-            var currentOpt = _optService.CurrentOpt(accountId);
+            var password = _ProfileDao.GetPasswordFromDb(accountId);
+            var hashPassword = _Sha256Adapter.GetHashPassword(inputPassword);
+            var currentOpt = _OptService.CurrentOpt(accountId);
 
             if (hashPassword != password || currentOpt != otp)
             {
-                _failedCounter.AddFailedCount(accountId);
-                GetFailedCount(accountId);
-                _slackAdapter.Notify("Login Failed");
-
+                _FailedCounter.AddFailedCount(accountId);
+                LogFailedCount(accountId);
+                _SlackAdapter.Notify("Login Failed");
                 return false;
             }
 
-            ResetFailedCount(accountId);
+            _FailedCounter.ResetFailedCount(accountId);
             return true;
         }
 
-
-        //after extract it show static means there's no dependency with current instance (class)
-        private static bool GetIsAccountLocked(string accountId)
+        private  void LogFailedCount(string accountId)
         {
-            var isLockedResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/IsLocked", accountId).Result;
-
-            isLockedResponse.EnsureSuccessStatusCode();
-            var isAccountLocked = isLockedResponse.Content.ReadAsAsync<bool>().Result;
-            return isAccountLocked;
+            int failedCount = _FailedCounter.FailedCount(accountId);
+            _NLogAdapter.Log(accountId, failedCount);
         }
-
-        private static void ResetFailedCount(string accountId)
-        {
-            var resetResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/Reset", accountId).Result;
-            resetResponse.EnsureSuccessStatusCode();
-        }
-         
-        //move instance method
-        private  void GetFailedCount(string accountId)
-        {
-            var failedCountResponse =
-                new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/GetFailedCount", accountId).Result;
-
-            failedCountResponse.EnsureSuccessStatusCode();
-
-            var failedCount = failedCountResponse.Content.ReadAsAsync<int>().Result;
-            var logger = NLog.LogManager.GetCurrentClassLogger();
-            logger.Info($"accountId:{accountId} failed times:{failedCount}");
-        }
-
-        //extract class on this
     }
 
     public class FailedTooManyTimesException : Exception
