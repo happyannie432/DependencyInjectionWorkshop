@@ -15,31 +15,30 @@ namespace DependencyInjectionWorkshop.Models
         bool Verify(string accountId, string inputPassword, string otp);
     }
 
-    public class NotificationDecorator : IAuthentication
+    public class FailedCounterDecorator : BaseAuthenticationDecorator
     {
-        private readonly IAuthentication _AuthenticationService;
-        private readonly INotification _Notification;
+        private IAuthentication _Authentication;
+        private readonly IFailedCounter _FailedCounter;
 
-        public NotificationDecorator(IAuthentication authenticationService, INotification notification)
+        public FailedCounterDecorator(IAuthentication authentication, IFailedCounter failedCounter) : base(authentication)
         {
-            _AuthenticationService = authenticationService;
-            _Notification = notification;
+            _Authentication = authentication;
+            _FailedCounter = failedCounter;
         }
 
-        public void Notify(string accountId)
+        private void ResetFailedCount(string accountId)
         {
-            _Notification.Notify($"{accountId} Login Failed");
+            _FailedCounter.ResetFailedCount(accountId);
         }
-
-        public bool Verify(string accountId, string inputPassword, string otp)
+        
+        public override bool Verify(string accountId, string inputPassword, string otp)
         {
-            var isValid = _AuthenticationService.Verify(accountId, inputPassword, otp);
-            if (!isValid)
+            var isValid = base.Verify(accountId, inputPassword, otp);
+            if (isValid)
             {
-                Notify(accountId);
-                return false;
+                ResetFailedCount(accountId);
             }
-            return true;
+            return isValid;
         }
     }
 
@@ -51,7 +50,7 @@ namespace DependencyInjectionWorkshop.Models
         private readonly INotification _Notification;
         private readonly IFailedCounter _FailedCounter;
         private readonly ILogger _Logger;
-        private readonly NotificationDecorator _NotificationDecorator;
+        private readonly FailedCounterDecorator _FailedCounterDecorator;
 
 
         public AuthenticationService()
@@ -62,7 +61,6 @@ namespace DependencyInjectionWorkshop.Models
             _Notification = new SlackAdapter();
             _FailedCounter = new FailedCounter();
             _Logger = new NLogAdapter();
-
         }
 
         //alt + insert 
@@ -96,7 +94,7 @@ namespace DependencyInjectionWorkshop.Models
                 return false;
             }
 
-            _FailedCounter.ResetFailedCount(accountId);
+            //        _FailedCounterDecorator.ResetFailedCount(accountId);
             return true;
         }
     }
