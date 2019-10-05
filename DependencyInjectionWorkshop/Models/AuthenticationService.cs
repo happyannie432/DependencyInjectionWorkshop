@@ -19,7 +19,7 @@ namespace DependencyInjectionWorkshop.Models
     {
         private readonly IProfile _Profile;
         private readonly IHash _Hash;
-        private readonly IOtpService _OtpService;
+        private readonly IOtp _OtpService;
         private readonly INotification _Notification;
         private readonly IFailedCounter _FailedCounter;
         private readonly ILogger _Logger;
@@ -38,7 +38,7 @@ namespace DependencyInjectionWorkshop.Models
         }
 
         //alt + insert 
-        public AuthenticationService(IProfile profile, IHash hash, IOtpService otpService, INotification notification, IFailedCounter failedCounter, ILogger logger)
+        public AuthenticationService(IProfile profile, IHash hash, IOtp otpService, INotification notification, IFailedCounter failedCounter, ILogger logger)
         {
             _Profile = profile;
             _Hash = hash;

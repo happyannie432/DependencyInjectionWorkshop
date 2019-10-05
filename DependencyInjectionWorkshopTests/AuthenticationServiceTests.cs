@@ -14,7 +14,7 @@ namespace DependencyInjectionWorkshopTests
         private const string _DefaultPassword = "abc";
         private const int _DefaultFailedCount = 3;
         private IProfile _ProfileDao;
-        private IOtpService _Otp;
+        private IOtp _Otp;
         private IHash _Hash;
         private IFailedCounter _FailCounter;
         private INotification _Notification;
@@ -25,7 +25,7 @@ namespace DependencyInjectionWorkshopTests
         public void Setup()
         {
             _ProfileDao = Substitute.For<IProfile>();
-            _Otp = Substitute.For<IOtpService>();
+            _Otp = Substitute.For<IOtp>();
             _Hash = Substitute.For<IHash>();
             _FailCounter = Substitute.For<IFailedCounter>();
             _Notification = Substitute.For<INotification>();
@@ -34,7 +34,7 @@ namespace DependencyInjectionWorkshopTests
 
             _AuthenticationService = new FailedCounterDecorator(_AuthenticationService, _FailCounter);
             _AuthenticationService = new LogFailedCounterDecorator(_AuthenticationService, _Logger, _FailCounter);
-            _AuthenticationService = new AuthenticationDecorator(_AuthenticationService, _Notification);
+            _AuthenticationService = new NotificationDecorator(_AuthenticationService, _Notification);
         }
 
         [Test]
