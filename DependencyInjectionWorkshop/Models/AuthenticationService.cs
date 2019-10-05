@@ -1,36 +1,36 @@
 ﻿using System;
-using System.Data;
-using System.Data.SqlClient;
-using System.Linq;
 using System.Net.Http;
-using System.Text;
-using Dapper;
-using SlackAPI;
 
 namespace DependencyInjectionWorkshop.Models
 {
-    public class ProfileDao
+    public class FailedCounter
     {
-        public string GetPasswordFromDb(string accountId)
+        public FailedCounter()
         {
-            string password;
-            using (var connection = new SqlConnection("my connection string"))
-            {
-                password = connection.Query<string>("spGetUserPassword", new {Id = accountId},
-                    commandType: CommandType.StoredProcedure).SingleOrDefault();
-            }
+        }
 
-            return password;
+        public void AddFailedCount(string accountId)
+        {
+            var addFailedCountResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/Add", accountId).Result;
+            addFailedCountResponse.EnsureSuccessStatusCode();
         }
     }
 
     public class AuthenticationService
     {
         private readonly ProfileDao _profileDao;
+        private readonly Sha256Adapter _sha256Adapter;
+        private readonly OptService _optService;
+        private readonly SlackAdapter _slackAdapter;
+        private readonly FailedCounter _failedCounter;
 
         public AuthenticationService()
         {
             _profileDao = new ProfileDao();
+            _sha256Adapter = new Sha256Adapter();
+            _optService = new OptService();
+            _slackAdapter = new SlackAdapter();
+            _failedCounter = new FailedCounter();
         }
 
         public bool Verify(string accountId, string inputPassword, string otp)
@@ -40,34 +40,21 @@ namespace DependencyInjectionWorkshop.Models
                 throw new FailedTooManyTimesException();
             }
 
-            //in order to create profileDao inline profile first then introduce field chose constructor
             var password = _profileDao.GetPasswordFromDb(accountId);
-            var hashPassword = GetHashPassword(inputPassword);
-            var currentOpt = CurrentOpt(accountId);
+            var hashPassword = _sha256Adapter.GetHashPassword(inputPassword);
+            var currentOpt = _optService.CurrentOpt(accountId);
 
             if (hashPassword != password || currentOpt != otp)
             {
-                NewMethod(accountId);
-                AddFailedCount(accountId);
-                Notify("Login Failed");
+                _failedCounter.AddFailedCount(accountId);
+                GetFailedCount(accountId);
+                _slackAdapter.Notify("Login Failed");
 
                 return false;
             }
 
             ResetFailedCount(accountId);
             return true;
-        }
-
-        private static string CurrentOpt(string accountId)
-        {
-            var response = new HttpClient() {BaseAddress = new Uri("http://joey.com/")}.PostAsJsonAsync("api/otps", accountId)
-                .Result;
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new Exception($"web api error, accountId:{accountId}");
-            }
-
-            return response.Content.ReadAsAsync<string>().Result;
         }
 
 
@@ -86,14 +73,9 @@ namespace DependencyInjectionWorkshop.Models
             var resetResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/Reset", accountId).Result;
             resetResponse.EnsureSuccessStatusCode();
         }
-
-        private static void Notify(string message)
-        {
-            var slackClient = new SlackClient("my api token");
-            slackClient.PostMessage(response1 => { }, "my channel", message, "my bot name");
-        }
-
-        private static void AddFailedCount(string accountId)
+         
+        //move instance method
+        private  void GetFailedCount(string accountId)
         {
             var failedCountResponse =
                 new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/GetFailedCount", accountId).Result;
@@ -103,26 +85,6 @@ namespace DependencyInjectionWorkshop.Models
             var failedCount = failedCountResponse.Content.ReadAsAsync<int>().Result;
             var logger = NLog.LogManager.GetCurrentClassLogger();
             logger.Info($"accountId:{accountId} failed times:{failedCount}");
-        }
-
-        private static void NewMethod(string accountId)
-        {
-            var addFailedCountResponse = new HttpClient() { BaseAddress = new Uri("http://joey.com/") }.PostAsJsonAsync("api/failedCounter/Add", accountId).Result;
-            addFailedCountResponse.EnsureSuccessStatusCode();
-        }
-
-        private static string GetHashPassword(string inputPassword)
-        {
-            var crypt = new System.Security.Cryptography.SHA256Managed();
-            var hash = new StringBuilder();
-            var crypto = crypt.ComputeHash(Encoding.UTF8.GetBytes(inputPassword));
-            foreach (var theByte in crypto)
-            {
-                hash.Append(theByte.ToString("x2"));
-            }
-
-            var hashPassword = hash.ToString();
-            return hashPassword;
         }
 
         //extract class on this
